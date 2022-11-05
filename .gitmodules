@@ -1,4 +1,0 @@
-[submodule "DualSense-Windows"]
-	path = DualSense-Windows
-	url = https://github.com/Ohjurot/DualSense-Windows
-	branch = main
