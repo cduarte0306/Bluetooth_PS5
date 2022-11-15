@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "controller.h"
+#include "serial_connection_manager.h"
 
 #define RET_OK		(1U)
 #define RET_FAIL	(0U)
@@ -19,6 +20,8 @@ controller::controller()
 
 	/* Create a controller thread */
 	initController();
+
+	SerialManager::getPorts();
 	
 }
 

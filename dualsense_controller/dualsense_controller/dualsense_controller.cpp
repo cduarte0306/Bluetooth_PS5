@@ -1,16 +1,15 @@
 #include <Windows.h>
 #include <iostream>
 
-#include "ds5w.h"
-#include "controller.h"
+#include "car_controller.h"
 
 int main(int argc, char** argv) {
 
-	controller* controller_object = new controller;
-	
+	CarController* controller_object = new CarController();
+		
 	delete controller_object;
 
 	std::cout << "Leaving";
-	// Return zero
+
 	return 0;
 }

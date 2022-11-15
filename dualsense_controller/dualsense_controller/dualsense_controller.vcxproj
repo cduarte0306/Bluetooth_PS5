@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -133,12 +133,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="car_controller.cpp" />
     <ClCompile Include="controller.cpp" />
     <ClCompile Include="dualsense_controller.cpp" />
+    <ClCompile Include="serial_connection_manager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="car_controller.h" />
     <ClInclude Include="controller.h" />
     <ClInclude Include="ds5w.h" />
+    <ClInclude Include="serial_connection_manager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
