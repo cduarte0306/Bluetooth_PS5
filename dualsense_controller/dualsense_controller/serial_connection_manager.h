@@ -10,17 +10,21 @@
 #include <Windows.h>
 #include <WinBase.h>
 
+using namespace std;
+
 
 class SerialManager
 {
 public:
-	SerialManager(std::string comPort);
+	SerialManager(string comPort);
 	~SerialManager();
 
-	static std::vector<std::string> getPorts(void);
+	static vector<string> getPorts(void);
 
 private:
-	std::string parseComsel(std::string string);
+	string parseComsel(string string);
+	HANDLE portHandle;
+
 };
 
 #endif // ! SERIAL_CONNECTION_MANAGER_H

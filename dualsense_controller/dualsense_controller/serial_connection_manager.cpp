@@ -9,18 +9,41 @@
 
 #define MAX_NUM_PORTS		(128)
 
+using namespace std;
 
-SerialManager::SerialManager(std::string comPort)
+
+SerialManager::SerialManager(string comPort)
 {
-	HANDLE ComPort;
-
-	/* Parse through com port selection text */
+	string port = "\\\\.\\" + comPort;
+	cout << port << endl;
+	wstring_convert<codecvt_utf8_utf16<wchar_t>> converter;
+	wstring wport = converter.from_bytes(port);
 	
+	/* Parse through com port selection text */
+	portHandle = CreateFile(wport.c_str(), GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 
-	//CreateFile()
+	if (portHandle == INVALID_HANDLE_VALUE) {
+		cout << "Handle invalid\n";
+		exit(0);
+	}
 
-	/* Set input and output buffer sizes too 100 */
-	//SetupComm(ComPort, 100, 100);
+	DCB dcbSerialParams = { 0 };
+
+	if (!GetCommState(portHandle, &dcbSerialParams)) {
+		cout << "Unable to get parameters\n";
+		exit(0);
+	}
+
+	dcbSerialParams.BaudRate = CBR_115200;
+	dcbSerialParams.ByteSize = 8;
+	dcbSerialParams.StopBits = ONESTOPBIT;
+	dcbSerialParams.Parity = NOPARITY;
+
+	if (!SetCommState(portHandle, &dcbSerialParams)) {
+		cout << "Unable to set parameters\n";
+		exit(0);
+	}
+
 }
 
 
@@ -29,7 +52,7 @@ SerialManager::~SerialManager()
 }
 
 
-std::string  SerialManager::parseComsel(std::string string)
+string  SerialManager::parseComsel(std::string string)
 {
 	return "HHello";
 }
@@ -40,16 +63,16 @@ std::string  SerialManager::parseComsel(std::string string)
  * 
  * \param ports
  */
-std::vector<std::string> SerialManager::getPorts(void)
+vector<std::string> SerialManager::getPorts(void)
 {
 	std::vector <std::string> portList;
 
 	HANDLE comHandle;
-	std::string port;
-	std::wstring wport;
-	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+	string port;
+	wstring wport;
+	wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 
-	std::vector<std::string> portContainer;
+	vector<std::string> portContainer;
 
 	/* Open all com ports and add to the vector the com ports that do not return an error */
 	for (int portNum = 0; portNum < MAX_NUM_PORTS; portNum++)

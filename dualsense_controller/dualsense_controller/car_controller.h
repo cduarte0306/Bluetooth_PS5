@@ -17,6 +17,9 @@ public:
 private:
 	std::vector<std::string> comPorts;
 	SerialManager* serial = nullptr;
+
+	int parseNumber(std::string portFound);
+
 	
 };
 
