@@ -3,6 +3,9 @@
 #include <string>
 #include <codecvt>
 
+#include <thread>
+#include <chrono>
+
 
 #define RX_BUFFER_SIZE		(100u)
 #define TX_BUFFER_SIZE		(100u)
@@ -12,7 +15,7 @@
 using namespace std;
 
 
-SerialManager::SerialManager(string comPort)
+SerialManager::SerialManager(string comPort, int baudrate)
 {
 	string port = "\\\\.\\" + comPort;
 	cout << port << endl;
@@ -34,7 +37,7 @@ SerialManager::SerialManager(string comPort)
 		exit(0);
 	}
 
-	dcbSerialParams.BaudRate = CBR_115200;
+	dcbSerialParams.BaudRate = baudrate;
 	dcbSerialParams.ByteSize = 8;
 	dcbSerialParams.StopBits = ONESTOPBIT;
 	dcbSerialParams.Parity = NOPARITY;
@@ -44,6 +47,10 @@ SerialManager::SerialManager(string comPort)
 		exit(0);
 	}
 
+	/* Create a serial thread to handle reads */
+	thread serialThread(&SerialManager::MainThread, this);
+	serialThread.join();
+	
 }
 
 
@@ -52,9 +59,30 @@ SerialManager::~SerialManager()
 }
 
 
-string  SerialManager::parseComsel(std::string string)
+/* The following port function is to be called by other thread whenever data needs to be transmitted */
+SerialManager::write_ret_t SerialManager::writeData(SerialManager* serMng, tx_data_t* data, DWORD len)
 {
-	return "HHello";
+	DWORD bytesWritten;
+
+	/* Write all data bytes to the output buffer */
+	bool ret = WriteFile(serMng->portHandle, data, len, &bytesWritten, NULL);
+
+	if (ret == false) { return WRITE_FAIL; }
+
+	return WRITE_PASS;
+}
+
+
+SerialManager::read_ret_t SerialManager::readData(rx_data_t* data, DWORD len)
+{
+	DWORD  bytesRead;
+	bool ret;
+
+	ret = ReadFile(portHandle, data, len, &bytesRead, NULL);
+
+	if (ret == false) { return READ_FAIL; }
+	
+	return READ_PASS;
 }
 
 
@@ -63,21 +91,21 @@ string  SerialManager::parseComsel(std::string string)
  * 
  * \param ports
  */
-vector<std::string> SerialManager::getPorts(void)
+vector<string> SerialManager::getPorts(void)
 {
-	std::vector <std::string> portList;
+	vector <string> portList;
 
 	HANDLE comHandle;
 	string port;
 	wstring wport;
-	wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+	wstring_convert<codecvt_utf8_utf16<wchar_t>> converter;
 
-	vector<std::string> portContainer;
+	vector<string> portContainer;
 
 	/* Open all com ports and add to the vector the com ports that do not return an error */
 	for (int portNum = 0; portNum < MAX_NUM_PORTS; portNum++)
 	{
-		port = "\\\\.\\COM" + std::to_string(portNum);
+		port = "\\\\.\\COM" + to_string(portNum);
 		wport = converter.from_bytes(port);
 				
 		comHandle = CreateFile(wport.c_str(), GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
@@ -92,3 +120,16 @@ vector<std::string> SerialManager::getPorts(void)
 	return portContainer;
 }
 
+
+void SerialManager::MainThread(void)
+{
+	while(true)
+	{
+		
+
+		if (!readStatus) { continue; }
+
+		/* Wait for 1 millisecond */
+		this_thread::sleep_for(chrono::milliseconds(1));
+	}
+}

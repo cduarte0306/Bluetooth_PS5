@@ -19,6 +19,8 @@ CarController::CarController()
 	string selectedPort;
 	string userInput;
 
+	string baudRate;
+
 	/* Open serial handler object */
 	cout << "Select the following com ports:\n";
 	
@@ -33,8 +35,13 @@ CarController::CarController()
 
 	cin >> userInput;
 
+	cout << "Select baurate: \n";
+	cin >> baudRate;
+
+	int intbr = std::atoi(baudRate.c_str());
+
 	/* Create the serial object */
-	serial = new SerialManager(userInput);
+	serial = new SerialManager(userInput, intbr);
 }
 
 
