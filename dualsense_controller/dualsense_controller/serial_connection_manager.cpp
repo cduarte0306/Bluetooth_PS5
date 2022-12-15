@@ -12,6 +12,8 @@
 
 #define MAX_NUM_PORTS		(128)
 
+#define START_BYTE			(0x7E)
+
 using namespace std;
 
 
@@ -21,6 +23,8 @@ SerialManager::SerialManager(string comPort, int baudrate)
 	cout << port << endl;
 	wstring_convert<codecvt_utf8_utf16<wchar_t>> converter;
 	wstring wport = converter.from_bytes(port);
+
+	CloseHandle(portHandle);
 	
 	/* Parse through com port selection text */
 	portHandle = CreateFile(wport.c_str(), GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
@@ -42,20 +46,31 @@ SerialManager::SerialManager(string comPort, int baudrate)
 	dcbSerialParams.StopBits = ONESTOPBIT;
 	dcbSerialParams.Parity = NOPARITY;
 
+	GetCommTimeouts(portHandle, &timeout);
+	COMMTIMEOUTS timeout = { 0 };
+	timeout.ReadIntervalTimeout = 50;
+	timeout.ReadTotalTimeoutConstant = 50;
+	timeout.ReadTotalTimeoutMultiplier = 50;
+	timeout.WriteTotalTimeoutConstant = 50;
+	timeout.WriteTotalTimeoutMultiplier = 10;
+	SetCommTimeouts(portHandle, &timeout);
+
 	if (!SetCommState(portHandle, &dcbSerialParams)) {
 		cout << "Unable to set parameters\n";
 		exit(0);
 	}
 
+	std::cout << "Starting serial thread... \n";
+
 	/* Create a serial thread to handle reads */
 	thread serialThread(&SerialManager::MainThread, this);
 	serialThread.join();
-	
 }
 
 
 SerialManager::~SerialManager()
 {
+	CloseHandle(portHandle);
 }
 
 
@@ -121,13 +136,56 @@ vector<string> SerialManager::getPorts(void)
 }
 
 
+int SerialManager::calcChecksum(PUINT8 data, DWORD len)
+{
+	UINT32 sum = 0;
+
+	for (DWORD i = 0; i < len; i++)
+	{
+		sum += data[i];
+	}
+
+	return sum & 0xFF;
+}
+
+
+bool SerialManager::parseData(rx_data_t* data, DWORD len)
+{
+	if (data->start_byte!= START_BYTE) { return false; }
+
+	rc_telemetry_t tlm;
+
+	memcpy(&tlm, &data->telemetry, sizeof(rc_telemetry_t));
+
+	int checksum = calcChecksum((PUINT8)&tlm, sizeof(rc_telemetry_t));
+
+	if (checksum != data->metadata.key) { return false; }
+
+	return true;
+}
+
+
 void SerialManager::MainThread(void)
 {
+	rx_data_t rx_data;
+
 	while(true)
 	{
+		readData(&rx_data, sizeof(rc_telemetry_t));
 		
-
-		if (!readStatus) { continue; }
+		if (parseData(&rx_data, sizeof(rc_telemetry_t)))
+		{
+			/* Flush the buffer */
+			bool retPurge = PurgeComm(portHandle, PURGE_RXCLEAR);
+			if (!retPurge)
+			{
+				cout << "Error when flushing buffer\n";
+				exit(0);
+			}
+			
+			/* Place data in the main telemetry buffer */
+			memcpy(&rc_telemetry, &rx_data.telemetry, sizeof(rc_telemetry_t));
+		}
 
 		/* Wait for 1 millisecond */
 		this_thread::sleep_for(chrono::milliseconds(1));

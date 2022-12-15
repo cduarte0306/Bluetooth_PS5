@@ -5,9 +5,6 @@
 #include "controller.h"
 #include "serial_connection_manager.h"
 
-#define RET_OK		(1U)
-#define RET_FAIL	(0U)
-
 using namespace DS5W;
 
 
@@ -16,13 +13,14 @@ controller::controller()
 	std::cout << "Controller created!!!\n";
 	 
 	if (!enumController())
-		delete this;
-
-	/* Create a controller thread */
-	initController();
+	{
+		cout << "No controller is found. Exiting program\n";
+		exit(0);
+	}
 
 	SerialManager::getPorts();
-	
+
+	initDeviceContext(infos, &devCont);
 }
 
 
@@ -34,7 +32,7 @@ controller::~controller()
 
 bool controller::enumController(void)
 {
-	bool ret = RET_FAIL;
+	bool ret = CONTROLLER_FAIL;
 
 	switch (enumDevices(infos, 16, &controllersCount))
 	{
@@ -42,27 +40,17 @@ bool controller::enumController(void)
 			break;
 		case DS5W_E_INSUFFICIENT_BUFFER:
 			std::cout << "No controller found. Exiting\n";
-			ret = RET_FAIL;
+			ret = CONTROLLER_FAIL;
 			break;
 		default:
 			std::cout << "ID not recognized. Exiting application.\n";
-			ret = RET_FAIL;
+			ret = CONTROLLER_FAIL;
 			break;
 	}
 
-	if (controllersCount == 0) { return RET_FAIL; }
+	if (controllersCount == 0) { return CONTROLLER_FAIL; }
 
-	return RET_OK;
-}
-
-
-/**
- * Initialize controller.
- */
-void controller::initController(void)
-{
-	std::thread controllerThread(&controller::mainThread, this);
-	controllerThread.join();
+	return CONTROLLER_OK;
 }
 
 
@@ -74,33 +62,34 @@ bool controller::controllerListen(DS5InputState *inputState, DeviceContext *devC
 {
 	if (getDeviceInputState(devCont, inputState) != DS5W_OK)
 	{
-		return RET_FAIL;
+		return CONTROLLER_FAIL;
 	}
 
 	printf("Analog stick X-axis is %i\n",	inputState->leftStick.x);
 	printf("Analog stick y-axis is %i\n\n", inputState->leftStick.y);
 
-	return RET_OK;
+	return CONTROLLER_OK;
 }
 
 
-/**
- * Main Controller thread.
- * 
- */
-void controller::mainThread()
+int controller::getControllerInput(struct controllerInput* input)
 {
-	/* Intialize device context */
-	DeviceContext devCont;
-	DS5InputState inputState;
-
-	//if (initDeviceContext(&enumInfo, &devCont) != DS5W_OK) { delete this; }
-	initDeviceContext(infos, &devCont);
-	while (true)
+	if (getDeviceInputState(&devCont, &inputState) != DS5W_OK)
 	{
-		controllerListen(&inputState, &devCont);
-
-		/* Sleep thread for 1 millisecond */
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		return CONTROLLER_FAIL;
 	}
+
+	/* Place the read data inside the context struct */
+	input->rightJoystick.x = inputState.rightStick.x;
+	input->rightJoystick.y = inputState.rightStick.y;
+
+	input->leftJoystick.x = inputState.leftStick.x;
+	input->leftJoystick.y = inputState.leftStick.y;
+
+	input->circle_state   = inputState.buttonsAndDpad && DS5W_ISTATE_BTX_CIRCLE;
+	input->triangle_state = inputState.buttonsAndDpad && DS5W_ISTATE_BTX_TRIANGLE;
+	input->x_state		  = inputState.buttonsAndDpad && DS5W_ISTATE_BTX_CROSS;
+	input->square_state   = inputState.buttonsAndDpad && DS5W_ISTATE_BTX_SQUARE;
+
+	return CONTROLLER_OK;
 }

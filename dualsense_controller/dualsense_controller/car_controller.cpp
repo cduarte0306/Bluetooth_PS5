@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#include <thread>
+#include <chrono>
+
 using namespace std;
 
 
@@ -38,16 +41,22 @@ CarController::CarController()
 	cout << "Select baurate: \n";
 	cin >> baudRate;
 
-	int intbr = std::atoi(baudRate.c_str());
+	int intbr = atoi(baudRate.c_str());
 
 	/* Create the serial object */
 	serial = new SerialManager(userInput, intbr);
+	dswController = new controller();
+
+	/* Create a controller thread to car controls */
+	thread controllerThread(&CarController::MainThread, this);
+	controllerThread.join();
 }
 
 
 CarController::~CarController()
 {
-	
+	delete serial;
+	delete dswController;
 }
 
 
@@ -65,4 +74,21 @@ int CarController::parseNumber(string portFound)
 	}
 
 	return 0;
+}
+
+
+void CarController::MainThread(void)
+{
+	struct controller::controllerInput inputField;
+
+	while(true)
+	{
+		/* Get controller input */
+		if (dswController->getControllerInput(&inputField) == controller::CONTROLLER_FAIL) { exit(0); }
+
+		std::cout << "Input is " << inputField.circle_state << std::endl;
+
+		/* Wait for 20ms */
+		this_thread::sleep_for(chrono::milliseconds(20));
+	}
 }

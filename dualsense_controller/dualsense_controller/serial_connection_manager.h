@@ -99,18 +99,19 @@ public:
 
 	HANDLE portHandle;
 	
-	void getData(rx_data_t* rx_data, DWORD len);
-
+	void SerialManagerTransmit(cmd_data_t* cmd);
 
 private:
-
-	read_ret_t readData(rx_data_t* data, DWORD len);	
-	void parseData(rx_data_t* data, size_t len);
+	
+	read_ret_t readData(rx_data_t* data, DWORD len);
+	bool parseData(rx_data_t* data, DWORD len);
+	int calcChecksum(PUINT8 data, DWORD len);
 
 	void MainThread(void);
-	
-	bool readStatus = false;
 
+	rc_telemetry_t rc_telemetry;
+
+	COMMTIMEOUTS timeout;
 };
 
 #endif // ! SERIAL_CONNECTION_MANAGER_H
