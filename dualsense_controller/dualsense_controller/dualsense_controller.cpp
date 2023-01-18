@@ -6,6 +6,7 @@
 int main(int argc, char** argv) {
 
 	CarController* controller_object = new CarController();
+	controller_object->MainThread();
 		
 	delete controller_object;
 

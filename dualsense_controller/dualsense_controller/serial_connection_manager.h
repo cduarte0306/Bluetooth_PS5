@@ -10,8 +10,12 @@
 #include <Windows.h>
 #include <WinBase.h>
 
+#include <thread>
 
 using namespace std;
+
+
+#define END_SEQ_SIZE        (4u)
 
 
 class SerialManager
@@ -37,8 +41,7 @@ public:
 	typedef struct
 	{
 		uint16_t key;
-		uint8_t term_1;
-		uint8_t term_2;
+		uint64_t msgCount;
 	} metadata_t;
 
 	#pragma pack(1)
@@ -82,6 +85,7 @@ public:
 	{
 		uint8_t forward;
 		uint8_t reverse;
+		uint16_t motorSpeed;
 		uint16_t servo;
 		uint8_t eeprom_command;
 	} cmd_data_t;
@@ -91,27 +95,35 @@ public:
 	{
 		uint8_t start_byte;
 		cmd_data_t cmds;
+		uint8_t endSequence[END_SEQ_SIZE];
 		metadata_t metadata;
 	} tx_data_t;
 
 	static vector<string> getPorts(void);
-	static write_ret_t writeData(SerialManager* serMng, tx_data_t* data, DWORD len);
 
 	HANDLE portHandle;
 	
-	void SerialManagerTransmit(cmd_data_t* cmd);
+	static void setTxData(SerialManager* SerMng, cmd_data_t* cmdData);
+	static write_ret_t writeData(SerialManager* serMng, tx_data_t* data, DWORD len);
+	static uint64_t txCmdCount;
+
 
 private:
 	
 	read_ret_t readData(rx_data_t* data, DWORD len);
 	bool parseData(rx_data_t* data, DWORD len);
-	int calcChecksum(PUINT8 data, DWORD len);
-
-	void MainThread(void);
+	uint16_t fletchers16Bit(PUINT8 data, DWORD len);
+	int SendData(tx_data_t* tx_data);
+	void MainSerThread(void);
 
 	rc_telemetry_t rc_telemetry;
 
 	COMMTIMEOUTS timeout;
+
+	std::thread serThread;
+	bool isThreadRunning = true;
+
+	uint64_t rxCmdCount = 0;
 };
 
 #endif // ! SERIAL_CONNECTION_MANAGER_H

@@ -5,6 +5,7 @@
 
 #include <thread>
 #include <chrono>
+#include <functional>
 
 
 #define RX_BUFFER_SIZE		(100u)
@@ -48,10 +49,12 @@ SerialManager::SerialManager(string comPort, int baudrate)
 
 	GetCommTimeouts(portHandle, &timeout);
 	COMMTIMEOUTS timeout = { 0 };
-	timeout.ReadIntervalTimeout = 50;
-	timeout.ReadTotalTimeoutConstant = 50;
-	timeout.ReadTotalTimeoutMultiplier = 50;
-	timeout.WriteTotalTimeoutConstant = 50;
+
+	/* Configure timeout */
+	timeout.ReadIntervalTimeout = 10;
+	timeout.ReadTotalTimeoutConstant = 10;
+	timeout.ReadTotalTimeoutMultiplier = 10;
+	timeout.WriteTotalTimeoutConstant = 10;
 	timeout.WriteTotalTimeoutMultiplier = 10;
 	SetCommTimeouts(portHandle, &timeout);
 
@@ -63,13 +66,14 @@ SerialManager::SerialManager(string comPort, int baudrate)
 	std::cout << "Starting serial thread... \n";
 
 	/* Create a serial thread to handle reads */
-	thread serialThread(&SerialManager::MainThread, this);
-	serialThread.join();
+	serThread = thread (std::bind(&SerialManager::MainSerThread, this));
 }
 
 
 SerialManager::~SerialManager()
 {
+	isThreadRunning = false;
+	serThread.join();
 	CloseHandle(portHandle);
 }
 
@@ -91,7 +95,7 @@ SerialManager::write_ret_t SerialManager::writeData(SerialManager* serMng, tx_da
 SerialManager::read_ret_t SerialManager::readData(rx_data_t* data, DWORD len)
 {
 	DWORD  bytesRead;
-	bool ret;
+	bool ret = false;
 
 	ret = ReadFile(portHandle, data, len, &bytesRead, NULL);
 
@@ -136,16 +140,26 @@ vector<string> SerialManager::getPorts(void)
 }
 
 
-int SerialManager::calcChecksum(PUINT8 data, DWORD len)
+/**
+ * @brief Calculater the 16-bit fletcher checksum
+ *
+ * @param data Pointer to the data from which the checksum will be calculated
+ * @param len  Number of bytes to be transmitted
+ * @return uint16 Checksum result
+ */
+uint16_t SerialManager::fletchers16Bit(PUINT8 data, DWORD len)
 {
-	UINT32 sum = 0;
+	size_t index = -1;
+	uint32_t c1 = 0;
+	uint32_t c2 = 0;
 
-	for (DWORD i = 0; i < len; i++)
+	while ((index++) < len)
 	{
-		sum += data[i];
+		c1 += *(data + index) % 255;
+		c2 = (c1 + c2) % 255;
 	}
 
-	return sum & 0xFF;
+	return (c2 << 8) | (c1);
 }
 
 
@@ -157,7 +171,7 @@ bool SerialManager::parseData(rx_data_t* data, DWORD len)
 
 	memcpy(&tlm, &data->telemetry, sizeof(rc_telemetry_t));
 
-	int checksum = calcChecksum((PUINT8)&tlm, sizeof(rc_telemetry_t));
+	UINT16 checksum = fletchers16Bit((PUINT8)&tlm, sizeof(rc_telemetry_t));
 
 	if (checksum != data->metadata.key) { return false; }
 
@@ -165,11 +179,34 @@ bool SerialManager::parseData(rx_data_t* data, DWORD len)
 }
 
 
-void SerialManager::MainThread(void)
+void SerialManager::setTxData(SerialManager* SerMng, cmd_data_t* cmdData)
+{
+	/* Calculate the checksum */
+	UINT16 checksum = SerMng->fletchers16Bit((PUINT8)cmdData, sizeof(cmd_data_t));
+	
+	tx_data_t tx_data;
+	memcpy((PUINT8)&tx_data, (PUINT8)cmdData, sizeof(cmd_data_t));
+
+	tx_data.start_byte = START_BYTE;
+	tx_data.endSequence[0] = 0xD;
+	tx_data.endSequence[1] = 0xE;
+	tx_data.endSequence[2] = 0xA;
+	tx_data.endSequence[3] = 0xD;
+
+	/* Increment the message count */
+	txCmdCount++;
+	tx_data.metadata.msgCount = txCmdCount;
+	
+	writeData(SerMng, &tx_data, sizeof(tx_data));
+}
+
+
+void SerialManager::MainSerThread(void)
 {
 	rx_data_t rx_data;
+	isThreadRunning = true;
 
-	while(true)
+	while(isThreadRunning)
 	{
 		readData(&rx_data, sizeof(rc_telemetry_t));
 		
@@ -187,7 +224,7 @@ void SerialManager::MainThread(void)
 			memcpy(&rc_telemetry, &rx_data.telemetry, sizeof(rc_telemetry_t));
 		}
 
-		/* Wait for 1 millisecond */
-		this_thread::sleep_for(chrono::milliseconds(1));
+		/* Wait for 10 milliseconds */
+		this_thread::sleep_for(chrono::milliseconds(10));
 	}
 }

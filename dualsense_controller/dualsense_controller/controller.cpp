@@ -66,7 +66,6 @@ bool controller::controllerListen(DS5InputState *inputState, DeviceContext *devC
 	}
 
 	printf("Analog stick X-axis is %i\n",	inputState->leftStick.x);
-	printf("Analog stick y-axis is %i\n\n", inputState->leftStick.y);
 
 	return CONTROLLER_OK;
 }
@@ -74,22 +73,23 @@ bool controller::controllerListen(DS5InputState *inputState, DeviceContext *devC
 
 int controller::getControllerInput(struct controllerInput* input)
 {
-	if (getDeviceInputState(&devCont, &inputState) != DS5W_OK)
+	if (getDeviceInputState(&this->devCont, &this->inputState) != DS5W_OK)
 	{
 		return CONTROLLER_FAIL;
 	}
 
 	/* Place the read data inside the context struct */
-	input->rightJoystick.x = inputState.rightStick.x;
-	input->rightJoystick.y = inputState.rightStick.y;
+	input->rightJoystick.x = this->inputState.rightStick.x;
+	input->rightJoystick.y = this->inputState.rightStick.y;
 
-	input->leftJoystick.x = inputState.leftStick.x;
-	input->leftJoystick.y = inputState.leftStick.y;
+	input->leftJoystick.x = this->inputState.leftStick.x;
+	input->leftJoystick.y = this->inputState.leftStick.y;
 
-	input->circle_state   = inputState.buttonsAndDpad && DS5W_ISTATE_BTX_CIRCLE;
-	input->triangle_state = inputState.buttonsAndDpad && DS5W_ISTATE_BTX_TRIANGLE;
-	input->x_state		  = inputState.buttonsAndDpad && DS5W_ISTATE_BTX_CROSS;
-	input->square_state   = inputState.buttonsAndDpad && DS5W_ISTATE_BTX_SQUARE;
+	input->circle_state   = (this->inputState.buttonsAndDpad & DS5W_ISTATE_BTX_CIRCLE)   > 0;
+
+	input->triangle_state = (this->inputState.buttonsAndDpad & DS5W_ISTATE_BTX_TRIANGLE) > 0;
+	input->x_state		  = (this->inputState.buttonsAndDpad & DS5W_ISTATE_BTX_CROSS)	 > 0;
+	input->square_state   = (this->inputState.buttonsAndDpad & DS5W_ISTATE_BTX_SQUARE)   > 0;
 
 	return CONTROLLER_OK;
 }
